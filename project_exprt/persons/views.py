@@ -1,3 +1,7 @@
 from django.shortcuts import render
 
-# Create your views here.
+def index_page(request):
+    return render(request, 'persons.html')
+
+def page_auth(request):
+    return render(request, 'auth.html')
