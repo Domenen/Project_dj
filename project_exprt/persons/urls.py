@@ -11,7 +11,6 @@ urlpatterns = [
     path('persons/', views.index_page, name='persons'),
     path('documents/', views.documents_page, name='documents'),
     path('downloads/', views.downloads_page, name='downloads'),
-    path('downloads_2/', views.downloads_page_2, name='downloads_2'),
     path('projects/', views.procjets_page, name='projects'),
     path('user_cab/', views.user_cab, name='user_cab')    
 ]

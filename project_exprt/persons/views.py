@@ -9,9 +9,6 @@ def index_page(request):
 def downloads_page(request):
     return render(request, 'downloads_files.html')
 
-def downloads_page_2(request):
-    return render(request, 'downloads_files_2.html')
-
 def procjets_page(request):
     return render(request, 'projects.html')
 

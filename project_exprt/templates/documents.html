@@ -1,21 +1,28 @@
 {% extends 'base.html' %}
 
 
-{% block title %} Загрузить данные {% endblock %}
+{% block title %} Документы {% endblock %}
 
 {% block content %}
-<div>
-    <h1>Страница для загрузки данных </h1>
+<div class="d-flex justify-content-center">
+    <h1>Сущности Сотрудников</h1>
 </div>
-<div class="d-flex justify-content-center align-items-center min-vh-100">
+<div class="d-flex justify-content-center">
     <div>
-        <form action="" method="post">
-            <input type="file" name="" id="">
-            <br>
-            <input type="file" name="" id="">
-            <button type="submit" class="btn btn-primary w-100">Отправить</button>
-        </form>
-
+        <br>
+        <br>
+        <h4>Скачать последние данные</h4>
+        <button type="submit">Скачать</button>
+        <button type="submit">Отправить в ERP</button>
+        <br>
+        <br>
+        <br>
+        <br>
+        <h4>История загрузок</h4>
+        <p>Иванов Иван Иванович - 15.04.2025 - сущьность Сотрудников №8</p>
+        <p>Петров Петр Петрович - 12.04.2025 - сущьность Сотрудников №7</p>
+        <p>Захаров Захар Захарович - 07.04.2025 - сущьность Сотрудников №6</p>
+        <p>Дмитров Дмитрий Дмитриевич - 28.03.2025 - сущьность Сотрудников №5</p>
     </div>
 </div>
 {% endblock %}
