@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+
+{% block title %} Документы {% endblock %}
+
+{% block content %}
+<h1>Импортированные таблицы</h1>
+    
+<ul>
+    {% for table in tables %}
+        <li>
+            <a href="{% url 'table_detail' table.name %}">{{ table.name }}</a>
+            (создана {{ table.created_at|date:"Y-m-d H:i" }})
+        </li>
+    {% empty %}
+        <li>Нет импортированных таблиц</li>
+    {% endfor %}
+</ul>
+
+<a href="{% url 'upload_file' %}">Импорт новых данных</a>
+{% endblock %}

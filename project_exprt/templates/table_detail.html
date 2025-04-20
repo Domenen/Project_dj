@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Таблица {{ table_name }}{% endblock %}
+
+{% block content %}
+<div class="file-upload-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Таблица: {{ table_name }}</h2>
+        <a href="{% url 'table_delete' table_name=table_name %}" class="btn btn-outline-danger">
+            Удалить таблицу
+        </a>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="table-light">
+                <tr>
+                    {% for col in columns %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                    <tr>
+                        {% for col in columns %}
+                            <td>{{ row|get_item:col|default_if_none:"" }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page|add:'-1' }}">Предыдущая</a>
+                </li>
+            {% endif %}
+            
+            <li class="page-item disabled">
+                <span class="page-link">Страница {{ page }} из {{ total_pages }}</span>
+            </li>
+            
+            {% if page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page|add:'1' }}">Следующая</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    
+    <div class="text-center mt-4">
+        <a href="{% url 'table_list' %}" class="btn btn-outline-secondary">
+            Назад к списку таблиц
+        </a>
+    </div>
+</div>
+{% endblock %}

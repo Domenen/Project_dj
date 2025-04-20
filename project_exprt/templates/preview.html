@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Предпросмотр данных{% endblock %}
+
+{% block content %}
+<div class="file-upload-container">
+    <h2 class="text-center mb-4">Предпросмотр данных</h2>
+    <p class="text-center"><strong>Файл:</strong> {{ file_name }}</p>
+    <p class="text-center"><strong>Обнаружено строк:</strong> {{ row_count }}</p>
+    
+    <div class="table-responsive">
+        <table class="table table-bordered preview-table">
+            <thead class="table-light">
+                <tr>
+                    {% for col in columns %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_data %}
+                    <tr>
+                        {% for value in row.values %}
+                            <td>{{ value|default_if_none:"" }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <form method="post" class="action-buttons">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="tableName" class="form-label">Имя таблицы в базе данных:</label>
+            <input type="text" class="form-control" id="tableName" name="table_name" 
+                   value="{{ default_table_name }}" required>
+        </div>
+        <button type="submit" name="save_to_db" class="btn btn-success w-100">
+            Сохранить в базу данных
+        </button>
+        <a href="{% url 'upload_file' %}" class="btn btn-outline-secondary w-100 mt-2">
+            Загрузить другой файл
+        </a>
+    </form>
+</div>
+{% endblock %}

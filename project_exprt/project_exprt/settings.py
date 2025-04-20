@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,8 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'persons',
-    'projects'
+    'importapp',
 ]
 
 MIDDLEWARE = [
@@ -51,9 +51,13 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'libraries': {
+                'custom_tags': 'importapp.templatetags.custom_tags',
+            },
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'project_exprt.wsgi.application'
 
@@ -105,6 +109,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_DIR = [BASE_DIR / 'static']
+
+MEDIA_URL = '/media/'  
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Данные успешно импортированы{% endblock %}
+
+{% block content %}
+<div class="file-upload-container text-center">
+    <h2 class="text-success mb-4">Данные успешно импортированы!</h2>
+    <div class="alert alert-success">
+        Таблица <strong>{{ table_name }}</strong> создана успешно.
+    </div>
+    
+    <div class="d-grid gap-2">
+        <a href="{% url 'table_detail' table_name=table_name %}" class="btn btn-primary">
+            Просмотреть таблицу
+        </a>
+        <a href="{% url 'upload_file' %}" class="btn btn-outline-primary">
+            Импортировать новые данные
+        </a>
+        <a href="{% url 'table_list' %}" class="btn btn-outline-secondary">
+            Список всех таблиц
+        </a>
+    </div>
+</div>
+{% endblock %}
