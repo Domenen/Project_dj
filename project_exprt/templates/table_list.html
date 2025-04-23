@@ -9,7 +9,7 @@
 <ul>
     {% for table in tables %}
         <li>
-            <a href="{% url 'table_detail' table.name %}">{{ table.name }}</a>
+            <a href="{% url 'table_detail' table.table_name %}">{{ table.table_name }}</a>
             (создана {{ table.created_at|date:"Y-m-d H:i" }})
         </li>
     {% empty %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Главная страница{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="mb-4">Система управления данными</h1>
+            <p class="lead mb-5">Выберите действие для работы с базой данных</p>
+            
+            <div class="d-grid gap-3 col-md-6 mx-auto">
+                <!-- Кнопка просмотра таблиц -->
+                <a href="{% url 'table_list' %}" class="btn btn-primary btn-lg py-3">
+                    <i class="bi bi-table me-2"></i>Просмотр всех таблиц
+                </a>
+                
+                <!-- Кнопка загрузки файла -->
+                <a href="{% url 'upload_file' %}" class="btn btn-success btn-lg py-3">
+                    <i class="bi bi-upload me-2"></i>Загрузить файл
+                </a>
+                
+                <!-- Дополнительные кнопки (по желанию) -->
+                <a href="/admin" class="btn btn-outline-secondary btn-lg py-3">
+                    <i class="bi bi-gear me-2"></i>Администрирование
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-lg {
+        font-size: 1.2rem;
+        transition: all 0.3s ease;
+    }
+    .btn-lg:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}

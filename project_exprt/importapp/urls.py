@@ -6,7 +6,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     # Основные маршруты
-    path('', views.upload_file, name='upload_file'),
+    path('', views.home_page, name='home'),
+    path('upload/', views.upload_file, name='upload_file'),
     path('preview/', views.preview_data, name='preview_data'),
     path('save/', views.save_to_database, name='save_to_database'),
     

@@ -3,37 +3,52 @@
 {% block title %}Таблица {{ table_name }}{% endblock %}
 
 {% block content %}
-<div class="file-upload-container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Таблица: {{ table_name }}</h2>
-        <a href="{% url 'table_delete' table_name=table_name %}" class="btn btn-outline-danger">
+<div class="container mt-4">
+    <h2>Таблица: {{ table_name }}</h2>
+    <p>Всего записей: {{ total_rows }}</p>
+
+    <div class="mb-3">
+        <a href="{% url 'table_list' %}" class="btn btn-secondary">Назад к списку</a>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteTableModal">
             Удалить таблицу
-        </a>
+        </button>
     </div>
-    
+
     <div class="table-responsive">
         <table class="table table-bordered table-hover">
             <thead class="table-light">
                 <tr>
-                    {% for col in columns %}
-                        <th>{{ col }}</th>
+                    {% for column in columns %}
+                        <th>{{ column }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
                 {% for row in data %}
                     <tr>
-                        {% for col in columns %}
-                            <td>{{ row|get_item:col|default_if_none:"" }}</td>
+                        {% for value in row %}
+                            <td>
+                                {% if value is None %}
+                                    <span class="text-muted">NULL</span>
+                                {% else %}
+                                    {{ value }}
+                                {% endif %}
+                            </td>
                         {% endfor %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{{ columns|length }}" class="text-center">Нет данных</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    
-    <nav aria-label="Page navigation" class="mt-4">
-        <ul class="pagination justify-content-center">
+
+    <!-- Пагинация -->
+    {% if total_pages > 1 %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination">
             {% if page > 1 %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ page|add:'-1' }}">Предыдущая</a>
@@ -51,11 +66,28 @@
             {% endif %}
         </ul>
     </nav>
-    
-    <div class="text-center mt-4">
-        <a href="{% url 'table_list' %}" class="btn btn-outline-secondary">
-            Назад к списку таблиц
-        </a>
+    {% endif %}
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div class="modal fade" id="deleteTableModal" tabindex="-1" aria-labelledby="deleteTableModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteTableModalLabel">Подтверждение удаления</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Вы уверены, что хотите удалить таблицу "{{ table_name }}"? Это действие нельзя отменить.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <form method="post" action="{% url 'table_delete' table_name %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Удалить</button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

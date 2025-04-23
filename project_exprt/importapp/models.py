@@ -60,33 +60,51 @@ class DataImport(models.Model):
         # Формируем SQL для создания таблицы
         columns_sql = []
         for col in df.columns:
-            col_name = cls.sanitize_name(col)
+            if not col:
+                continue
             dtype = cls.dtype_to_field(str(df[col].dtype), col)
-            columns_sql.append(f'"{col_name}" {dtype}')
+            columns_sql.append(f'"{col}" {dtype}')
 
-        # Если нет колонки id, добавляем её
+        if not columns_sql:
+            raise ValueError("Нет допустимых колонок для создания таблицы")
+
         if 'id' not in df.columns:
             columns_sql.insert(0, '"id" SERIAL PRIMARY KEY')
 
-        create_sql = f'CREATE TABLE "{table_name}" (\n\t{",\n\t".join(columns_sql)}\n);'
-        # Выполнение SQL-запроса
+        # Создаем таблицу
         with connection.cursor() as cursor:
-            cursor.execute(create_sql)
+            cursor.execute(
+                f'CREATE TABLE "{table_name}" (\n{",\n".join(columns_sql)}\n);'
+            )
+            
+            #  Удалить когда перенесется все на PostgeSql 
+            if connection.vendor == 'sqlite':
+                cursor.execute('COMMIT;')
 
-        # Запись метаданных в таблицу DataImport
         cls.objects.create(
             table_name=table_name,
-            columns_info={col: str(df[col].dtype) for col in df.columns},
-            row_count=0
+            columns_info=dict(zip(df.columns, [str(df[col].dtype) for col in df.columns])),
+            row_count=len(df)
         )
 
     @classmethod
     def delete_table(cls, table_name: str) -> bool:
-        """Удаляет таблицу и соответствующую запись из базы данных."""
+        """Удаляет таблицу."""
         with connection.cursor() as cursor:
-            cursor.execute(f'DROP TABLE IF EXISTS "{table_name}" CASCADE;')
+            if connection.vendor == 'sqlite':
+                cursor.execute(f'DROP TABLE IF EXISTS "{table_name}";')
+            else:
+                cursor.execute(f'DROP TABLE IF EXISTS "{table_name}" CASCADE;')
+        
         try:
             cls.objects.get(table_name=table_name).delete()
             return True
         except cls.DoesNotExist:
             return False
+        
+    @classmethod
+    def get_table_columns(cls, table_name: str) -> list:
+        """Получает список колонок таблицы"""
+        with connection.cursor() as cursor:
+            cursor.execute(f'SELECT * FROM "{table_name}" LIMIT 0;')
+            return [col[0] for col in cursor.description]

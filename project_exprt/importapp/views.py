@@ -5,15 +5,24 @@ from django.http import HttpResponseBadRequest, HttpResponseForbidden
 from django.contrib import messages
 from django.db import transaction, connection
 from .models import DataImport
+import logging
 import io
 import re
 from io import BytesIO
+
+
+logger = logging.getLogger(__name__)
+
 
 def sanitize_name(name: str) -> str:
     """Утилита для очистки имен таблиц и столбцов"""
     name = re.sub(r'[^\w]', '_', str(name).lower())
     name = re.sub(r'_+', '_', name)
     return name.strip('_')[:63]
+
+def home_page(request):
+    return render(request, 'home_page.html')
+
 
 def detect_file_format(file) -> tuple:
     """Определяет формат файла"""
@@ -102,12 +111,10 @@ def save_to_database(request):
 
         df = pd.read_json(io.StringIO(full_data_json))
 
-        # Имя таблицы
         table_name = sanitize_name(request.POST.get('table_name', ''))
         if not table_name:
             raise ValueError("Имя таблицы не задано")
 
-        # Создание таблицы
         DataImport.create_table_from_dataframe(table_name, df)
 
         # Подготавливаем данные для вставки
@@ -131,7 +138,7 @@ def save_to_database(request):
         del request.session['import_data']
         del request.session['full_data']
 
-        messages.success(request, f"Данные успешно сохранены в таблицу {table_name}. Всего записей: {len(records)}.")
+        messages.success(request, f"Данные успешно сохранены в таблицу {table_name}. Всего записей: {len(df)}.")
         return redirect('import_success', table_name=table_name)
 
     except Exception as e:
@@ -160,26 +167,32 @@ def table_list(request):
     return render(request, 'table_list.html', {'tables': tables})
 
 def table_detail(request, table_name):
-    """Просмотр подробностей таблицы"""
+    """Просмотр содержимого таблицы"""
     try:
-        # Получаем объект таблицы
-        model = DataImport.objects.get(table_name=table_name)
+        try:
+            import_record = DataImport.objects.get(table_name=table_name)
+        except DataImport.DoesNotExist:
+            raise ValueError(f"Таблица {table_name} не найдена в метаданных")
 
-        # Пагинация данных
+        # Получаем данные с пагинацией
         page = int(request.GET.get('page', 1))
         per_page = 50
-        total = model.row_count
-        start_idx = (page - 1) * per_page
-        end_idx = min(start_idx + per_page, total)
+        offset = (page - 1) * per_page
 
-        # Чтение данных из базы
         with connection.cursor() as cursor:
-            cursor.execute(f'SELECT * FROM "{table_name}" LIMIT %s OFFSET %s;', [per_page, start_idx])
+            cursor.execute(f'SELECT COUNT(*) FROM "{table_name}";')
+            total = cursor.fetchone()[0]
+
+            cursor.execute(
+                f'SELECT * FROM "{table_name}" LIMIT %s OFFSET %s;',
+                [per_page, offset]
+            )
+            columns = [col[0] for col in cursor.description]
             rows = cursor.fetchall()
 
         context = {
             'table_name': table_name,
-            'columns': model.columns_info,
+            'columns': columns,
             'data': rows,
             'page': page,
             'total_pages': (total // per_page) + 1,
@@ -187,8 +200,10 @@ def table_detail(request, table_name):
         }
 
         return render(request, 'table_detail.html', context)
+
     except Exception as e:
-        messages.error(request, str(e))
+        messages.error(request, f"Ошибка: {str(e)}")
+        logger.exception(f"Ошибка при просмотре таблицы {table_name}")
         return redirect('table_list')
 
 @transaction.atomic
