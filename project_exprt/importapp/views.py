@@ -1,13 +1,12 @@
 import pandas as pd
 from django.urls import reverse
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.shortcuts import render, redirect
+from django.http import HttpResponseBadRequest, HttpResponseForbidden
 from django.contrib import messages
-from django.db import transaction
+from django.db import transaction, connection
 from .models import DataImport
-import chardet
+import io
 import re
-from typing import Optional
 from io import BytesIO
 
 def sanitize_name(name: str) -> str:
@@ -17,46 +16,26 @@ def sanitize_name(name: str) -> str:
     return name.strip('_')[:63]
 
 def detect_file_format(file) -> tuple:
-    """Определяет формат файла и его кодировку"""
-    filename = file.name.lower()
-    
-    # Для CSV и текстовых файлов определяем кодировку
-    if filename.endswith('.csv') or '.' not in filename:
-        sample = file.read(1024)
-        file.seek(0)
-        encoding = chardet.detect(sample)['encoding']
-        return 'csv', encoding
-    
-    # Для известных форматов
-    formats = {
-        '.xlsx': ('excel', None),
-        '.xls': ('excel', None),
-        '.json': ('json', None),
-        '.parquet': ('parquet', None),
-        '.feather': ('feather', None)
-    }
-    
-    for ext, (fmt, enc) in formats.items():
-        if filename.endswith(ext):
-            return fmt, enc
-    
-    return 'unknown', None
+    """Определяет формат файла"""
+    file_name, file_format = file.name.lower().split(".")
 
-def read_file_to_dataframe(file, file_format: str, encoding: Optional[str] = None) -> pd.DataFrame:
+    # Для известных форматов
+    formats = ["csv", "xlsx", "xls", "json", "parquet", "feather"]
+
+    # Известен нам формат или нет
+    if file_format not in formats:
+        return HttpResponseBadRequest("Неизвестный формат файла")
+
+    return file_name, file_format
+
+
+def read_file_to_dataframe(file, file_format) -> pd.DataFrame:
     """Читает файл в DataFrame с обработкой ошибок"""
     try:
         if file_format == 'csv':
-            # Пробуем разные разделители
-            for sep in [',', ';', '\t', '|']:
-                try:
-                    file.seek(0)
-                    return pd.read_csv(file, sep=sep, encoding=encoding, on_bad_lines='warn')
-                except:
-                    continue
-            file.seek(0)
-            return pd.read_csv(file, sep=None, engine='python', encoding=encoding)
+            return pd.read_csv(file, encoding="utf-8")
         
-        elif file_format == 'excel':
+        elif file_format == 'xlsx' or file_format == 'xls':
             return pd.read_excel(file)
         
         elif file_format == 'json':
@@ -74,6 +53,7 @@ def read_file_to_dataframe(file, file_format: str, encoding: Optional[str] = Non
     except Exception as e:
         raise ValueError(f"Ошибка чтения файла: {str(e)}")
 
+
 def upload_file(request):
     """Обработчик загрузки файла"""
     if request.method == 'POST':
@@ -86,16 +66,16 @@ def upload_file(request):
         
         try:
             # Определяем формат и читаем файл
-            file_format, encoding = detect_file_format(file)
-            df = read_file_to_dataframe(file, file_format, encoding)
+            file_name, file_format = detect_file_format(file)
+            df = read_file_to_dataframe(file, file_format)
             
-            # Очищаем имена столбцов
-            df.columns = [sanitize_name(col) for col in df.columns]
-            
+            request.session['full_data'] = df.to_json(orient='records', force_ascii=False)
+
             # Сохраняем DataFrame в сессии для предпросмотра
+            preview_data = df.head().to_dict('records')
             request.session['import_data'] = {
-                'df_json': df.head(100).to_json(orient='records'),
-                'file_name': file.name,
+                'preview_data': preview_data,
+                'file_name': file_name,
                 'row_count': len(df),
                 'columns': list(df.columns)
             }
@@ -112,40 +92,48 @@ def upload_file(request):
 def save_to_database(request):
     """Сохранение данных в БД"""
     if request.method != 'POST':
-        return HttpResponseForbidden("Метод не разрешен")
-    
+        return HttpResponseForbidden("Запрещённый метод")
+
     try:
-        import_data = request.session.get('import_data')
-        if not import_data:
-            raise ValueError("Данные для импорта не найдены")
-        
+        # Извлекаем данные из сессии
+        full_data_json = request.session.get('full_data')
+        if not full_data_json:
+            raise ValueError("Отсутствуют данные для импорта")
+
+        df = pd.read_json(io.StringIO(full_data_json))
+
+        # Имя таблицы
         table_name = sanitize_name(request.POST.get('table_name', ''))
         if not table_name:
-            raise ValueError("Не указано имя таблицы")
+            raise ValueError("Имя таблицы не задано")
+
+        # Создание таблицы
+        DataImport.create_table_from_dataframe(table_name, df)
+
+        # Подготавливаем данные для вставки
+        columns = [f'"{col}"' for col in df.columns]
+        placeholders = ', '.join(['%s'] * len(df.columns))
         
-        # Восстанавливаем DataFrame из сессии
-        df = pd.read_json(import_data['df_json'])
+        # SQL для вставки данных
+        insert_sql = f'INSERT INTO "{table_name}" ({", ".join(columns)}) VALUES ({placeholders})'
         
-        # Создаем таблицу и импортируем данные
-        model, import_record = DataImport.create_table_from_dataframe(
-            table_name=table_name,
-            df=df
-        )
-        
-        # Сохраняем данные
-        records = df.to_dict('records')
-        model.objects.bulk_create([model(**r) for r in records])
-        
-        # Обновляем счетчик строк
-        import_record.row_count = len(records)
+        # Конвертируем данные в список кортежей
+        data_tuples = [tuple(row) for row in df.to_numpy()]
+        with connection.cursor() as cursor:
+            cursor.executemany(insert_sql, data_tuples)
+
+        # Обновляем счётчик количества строк
+        import_record = DataImport.objects.get(table_name=table_name)
+        import_record.row_count = len(df)
         import_record.save()
-        
-        # Очищаем сессию
+
+        # Очищаем сессионные данные
         del request.session['import_data']
-        
-        messages.success(request, f"Данные успешно импортированы в таблицу {table_name}")
+        del request.session['full_data']
+
+        messages.success(request, f"Данные успешно сохранены в таблицу {table_name}. Всего записей: {len(records)}.")
         return redirect('import_success', table_name=table_name)
-    
+
     except Exception as e:
         messages.error(request, f"Ошибка импорта: {str(e)}")
         return redirect('preview_data')
@@ -160,42 +148,45 @@ def preview_data(request):
         'file_name': import_data['file_name'],
         'row_count': import_data['row_count'],
         'columns': import_data['columns'],
-        'preview_data': import_data['df_json'],
+        'preview_data': import_data['preview_data'],
         'default_table_name': sanitize_name(import_data['file_name'].split('.')[0])
     }
     
     return render(request, 'preview.html', context)
 
 def table_list(request):
-    """Список всех импортированных таблиц"""
+    """Отображение списка импортированных таблиц"""
     tables = DataImport.objects.all().order_by('-created_at')
     return render(request, 'table_list.html', {'tables': tables})
 
 def table_detail(request, table_name):
-    """Просмотр содержимого таблицы"""
+    """Просмотр подробностей таблицы"""
     try:
-        # Получаем модель для динамической таблицы
-        model = DataImport.get_dynamic_model(table_name)
-        if not model:
-            raise ValueError(f"Таблица {table_name} не найдена")
-        
-        # Получаем данные с пагинацией
+        # Получаем объект таблицы
+        model = DataImport.objects.get(table_name=table_name)
+
+        # Пагинация данных
         page = int(request.GET.get('page', 1))
         per_page = 50
-        total = model.objects.count()
-        data = model.objects.all()[(page-1)*per_page : page*per_page]
-        
+        total = model.row_count
+        start_idx = (page - 1) * per_page
+        end_idx = min(start_idx + per_page, total)
+
+        # Чтение данных из базы
+        with connection.cursor() as cursor:
+            cursor.execute(f'SELECT * FROM "{table_name}" LIMIT %s OFFSET %s;', [per_page, start_idx])
+            rows = cursor.fetchall()
+
         context = {
             'table_name': table_name,
-            'columns': [f.name for f in model._meta.get_fields() if f.name != 'id'],
-            'data': data,
+            'columns': model.columns_info,
+            'data': rows,
             'page': page,
             'total_pages': (total // per_page) + 1,
             'total_rows': total
         }
-        
+
         return render(request, 'table_detail.html', context)
-    
     except Exception as e:
         messages.error(request, str(e))
         return redirect('table_list')
@@ -205,13 +196,16 @@ def table_delete(request, table_name):
     """Удаление таблицы с подтверждением"""
     if request.method == 'POST':
         try:
-            DataImport.delete_table(table_name)
-            messages.success(request, f"Таблица {table_name} успешно удалена")
+            deleted = DataImport.delete_table(table_name)
+            if deleted:
+                messages.success(request, f"Таблица {table_name} успешно удалена")
+            else:
+                messages.warning(request, f"Таблицу {table_name} невозможно удалить")
             return redirect('table_list')
         except Exception as e:
             messages.error(request, f"Ошибка удаления: {str(e)}")
             return redirect('table_detail', table_name=table_name)
-    
+
     return render(request, 'confirm_delete.html', {'table_name': table_name})
 
 def import_success(request, table_name):

@@ -21,7 +21,7 @@
                 {% for row in preview_data %}
                     <tr>
                         {% for value in row.values %}
-                            <td>{{ value|default_if_none:"" }}</td>
+                            <td>{{ value }}</td>
                         {% endfor %}
                     </tr>
                 {% endfor %}
@@ -29,19 +29,17 @@
         </table>
     </div>
     
-    <form method="post" class="action-buttons">
+    <form method="post" action="{% url 'save_to_database' %}" class="mt-4">
         {% csrf_token %}
         <div class="mb-3">
             <label for="tableName" class="form-label">Имя таблицы в базе данных:</label>
             <input type="text" class="form-control" id="tableName" name="table_name" 
-                   value="{{ default_table_name }}" required>
+                   value="{{ default_table_name }}" placeholder="Введите название таблицы" required>
         </div>
-        <button type="submit" name="save_to_db" class="btn btn-success w-100">
-            Сохранить в базу данных
-        </button>
-        <a href="{% url 'upload_file' %}" class="btn btn-outline-secondary w-100 mt-2">
-            Загрузить другой файл
-        </a>
+        <button type="submit" class="btn btn-primary w-100">Сохранить в базу данных</button>
     </form>
+    <a href="{% url 'upload_file' %}" class="btn btn-outline-secondary w-100 mt-2">
+        Загрузить другой файл
+    </a>
 </div>
 {% endblock %}

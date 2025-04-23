@@ -1,35 +1,23 @@
 from django.urls import path
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 
-# app_name = 'data_importer'  # Пространство имен для URL
 
 urlpatterns = [
-    # Главная страница - загрузка файла
+    # Основные маршруты
     path('', views.upload_file, name='upload_file'),
+    path('preview/', views.preview_data, name='preview_data'),
+    path('save/', views.save_to_database, name='save_to_database'),
     
-    # Просмотр списка всех импортированных таблиц
+    # Работа с таблицами
     path('tables/', views.table_list, name='table_list'),
-    
-    # Просмотр содержимого конкретной таблицы
     path('tables/<str:table_name>/', views.table_detail, name='table_detail'),
-    
-    # Удаление таблицы (с подтверждением)
     path('tables/<str:table_name>/delete/', views.table_delete, name='table_delete'),
     
-    # Страница успешного импорта
-    path('import-success/', views.import_success, name='import_success'),
-    
-    # Страница предпросмотра данных перед импортом
-    path('preview/', views.preview_data, name='preview_data'),
+    # Статусные страницы
+    path('import-success/<str:table_name>/', views.import_success, name='import_success'),
 ]
 
-# Дополнительные настройки:
-"""
-1. Все URL имеют понятные имена (name) для удобного обращения в шаблонах
-2. Используется пространство имен (app_name) для избежания конфликтов
-3. Имена таблиц (table_name) передаются как строковые параметры
-4. Порядок URL организован от более общих к более конкретным
-5. Добавлен URL для удаления таблиц с подтверждением
-"""
-
-# urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
