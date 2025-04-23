@@ -1,13 +1,9 @@
 from django.db import models
 from django.db import connection
-from django.db.utils import ProgrammingError, IntegrityError
+from django.db.utils import IntegrityError
 import pandas as pd
-import json
 import re
-from typing import Type, Optional, Tuple, Dict, Any
-import logging
 
-logger = logging.getLogger(__name__)
 
 class DataImport(models.Model):
     """
